@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>報連相メモ</title>
+<title>報連相メモ｜5W1H</title>
 <style>
 :root{
 --bg:#f4f6f5; --card:#ffffff; --ink:#22302a; --sub:#6b7a72;
 --accent:#2e7d5b; --accent-dark:#256a4c; --line:#dde5e0;
---hou:#2e7d5b; --ren:#2f6fb2; --sou:#c07a1e;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;}
@@ -31,18 +30,24 @@ label.title{
 display:flex; align-items:center; gap:8px;
 font-weight:700; font-size:15px; margin-bottom:8px;
 }
-.badge{
-display:inline-block; color:#fff; font-size:12px; font-weight:700;
-border-radius:6px; padding:2px 8px; line-height:1.5;
+.en{
+display:inline-block; background:#eef4f0; color:var(--accent-dark);
+font-size:12px; font-weight:700; border-radius:6px; padding:2px 8px; line-height:1.5;
 }
-.b-hou{background:var(--hou);}.b-ren{background:var(--ren);}.b-sou{background:var(--sou);}
+.seg{display:flex; gap:8px;}
+.seg button{
+flex:1; padding:12px 6px; font-size:15px; font-weight:700;
+background:#eef2ef; color:var(--ink); border:2px solid transparent; border-radius:10px;
+appearance:none; -webkit-appearance:none; cursor:pointer; font-family:inherit;
+}
+.seg button.on{background:#fff; border-color:var(--accent); color:var(--accent-dark);}
 input[type="text"], textarea{
 width:100%; border:1px solid var(--line); border-radius:10px;
 font-size:16px; /* 16px以上でiOS Safariの自動ズームを防ぐ */
 padding:10px 12px; background:#fbfcfb; color:var(--ink);
 font-family:inherit; line-height:1.6;
 }
-textarea{min-height:96px; resize:vertical;}
+textarea{min-height:72px; resize:vertical;}
 input[type="text"]:focus, textarea:focus{
 outline:none; border-color:var(--accent); background:#fff;
 box-shadow:0 0 0 3px rgba(46,125,91,.15);
@@ -55,17 +60,13 @@ padding:12px; font-size:15px; line-height:1.75; min-height:120px;
 }
 .preview.empty{color:var(--sub);}
 .btns{display:flex; gap:10px; margin-top:12px;}
-button{
+.btns button{
 appearance:none; -webkit-appearance:none; border:none; cursor:pointer;
 font-family:inherit; font-weight:700; border-radius:10px;
 }
-.btn-copy{
-flex:1; background:var(--accent); color:#fff; font-size:16px; padding:14px 10px;
-}
+.btn-copy{flex:1; background:var(--accent); color:#fff; font-size:16px; padding:14px 10px;}
 .btn-copy:active{background:var(--accent-dark);}
-.btn-clear{
-background:#eef2ef; color:var(--ink); font-size:14px; padding:14px 16px;
-}
+.btn-clear{background:#eef2ef; color:var(--ink); font-size:14px; padding:14px 16px;}
 .toast{
 position:fixed; left:50%; bottom:calc(22px + env(safe-area-inset-bottom));
 transform:translateX(-50%) translateY(20px);
@@ -80,9 +81,18 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 <body>
 <div class="wrap">
 <header>
-<h1>報連相メモ</h1>
-<p>報告・連絡・相談を書いて、まとめてコピー。そのままチャットやメールに貼れます。入力内容はこの端末にだけ自動保存されます。</p>
+<h1>報連相メモ｜5W1H</h1>
+<p>5W1H（いつ・どこで・だれが・なにを・なぜ・どうやって）で書くと、抜けなく伝わります。入力内容はこの端末にだけ自動保存されます。</p>
 </header>
+
+<div class="card">
+<label class="title">区分</label>
+<div class="seg" id="segType">
+<button type="button" data-v="報告" class="on">報告</button>
+<button type="button" data-v="連絡">連絡</button>
+<button type="button" data-v="相談">相談</button>
+</div>
+</div>
 
 <div class="card">
 <label class="title" for="subject">件名（任意）</label>
@@ -90,21 +100,39 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 </div>
 
 <div class="card">
-<label class="title" for="hou"><span class="badge b-hou">報告</span> 進捗・結果</label>
-<textarea id="hou" placeholder="例：〇〇が完了しました。結果は△△でした。"></textarea>
-<div class="hint">結論から先に書くと伝わりやすいです。</div>
+<label class="title" for="when"><span class="en">When</span> いつ</label>
+<input type="text" id="when" placeholder="例：昨日まで／明日10:00／今日中">
 </div>
 
 <div class="card">
-<label class="title" for="ren"><span class="badge b-ren">連絡</span> 共有事項</label>
-<textarea id="ren" placeholder="例：明日の会議は10時からに変更になりました。"></textarea>
-<div class="hint">日時・場所・変更点など、関係者に知らせることを。</div>
+<label class="title" for="where"><span class="en">Where</span> どこで</label>
+<input type="text" id="where" placeholder="例：オンライン会議で／〇〇店で">
 </div>
 
 <div class="card">
-<label class="title" for="sou"><span class="badge b-sou">相談</span> 困りごと・判断待ち</label>
-<textarea id="sou" placeholder="例：〇〇の進め方で迷っています。A案とB案、どちらがよいでしょうか。"></textarea>
-<div class="hint">自分の考え（案）も添えると、返事がもらいやすいです。</div>
+<label class="title" for="who"><span class="en">Who</span> だれが・だれに</label>
+<input type="text" id="who" placeholder="例：私が／〇〇さんへ">
+</div>
+
+<div class="card">
+<label class="title" for="what"><span class="en">What</span> なにを</label>
+<textarea id="what" placeholder="例：〇〇の作業が完了しました／〇〇の変更をお知らせします"></textarea>
+</div>
+
+<div class="card">
+<label class="title" for="why"><span class="en">Why</span> なぜ</label>
+<textarea id="why" placeholder="例：来週の締切に影響するため／先方の都合で変更になったため"></textarea>
+</div>
+
+<div class="card">
+<label class="title" for="how"><span class="en">How</span> どうやって・どうなった</label>
+<textarea id="how" placeholder="例：資料を添付して送ります／確認のうえ返信をお願いします"></textarea>
+<div class="hint">結果や、次のお願い（いつまでに・何をしてほしいか）もここに。</div>
+</div>
+
+<div class="card">
+<label class="title" for="memo">メモ（任意）</label>
+<textarea id="memo" placeholder="補足があれば"></textarea>
 </div>
 
 <div class="card">
@@ -122,24 +150,30 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 
 <script>
 (function(){
-var fields = { subject: document.getElementById('subject'),
-hou: document.getElementById('hou'),
-ren: document.getElementById('ren'),
-sou: document.getElementById('sou')};
+var ids = ['subject','when','where','who','what','why','how','memo'];
+var fields = {};
+ids.forEach(function(id){ fields[id] = document.getElementById(id);});
 var preview = document.getElementById('preview');
 var toast = document.getElementById('toast');
-var KEY = 'hourensou-memo-v1';
+var seg = document.getElementById('segType');
+var type = '報告';
+var KEY = 'hourensou-memo-5w1h-v1';
+
+var labels = { when:'いつ', where:'どこで', who:'だれが', what:'なにを', why:'なぜ', how:'どうやって'};
+var order = ['when','where','who','what','why','how'];
 
 function buildText(){
 var parts = [];
 var s = fields.subject.value.trim();
 if (s) parts.push('件名：' + s);
-var hou = fields.hou.value.trim();
-var ren = fields.ren.value.trim();
-var sou = fields.sou.value.trim();
-if (hou) parts.push('\n' + hou);
-if (ren) parts.push('\n' + ren);
-if (sou) parts.push('\n' + sou);
+var lines = [''];
+order.forEach(function(k){
+var v = fields[k].value.trim();
+if (v) lines.push('・' + labels[k] + '：' + v);
+});
+if (lines.length > 1) parts.push(lines.join('\n'));
+var m = fields.memo.value.trim();
+if (m) parts.push(m);
 return parts.join('\n\n');
 }
 
@@ -148,12 +182,25 @@ var t = buildText();
 if (t) { preview.textContent = t;}
 else { preview.innerHTML = '<span class="empty">入力すると、ここにコピー用の文章が表示されます。</span>';}
 try {
-localStorage.setItem(KEY, JSON.stringify({
-subject: fields.subject.value, hou: fields.hou.value,
-ren: fields.ren.value, sou: fields.sou.value
-}));
+var data = { type: type};
+ids.forEach(function(id){ data[id] = fields[id].value;});
+localStorage.setItem(KEY, JSON.stringify(data));
 } catch(e) {}
 }
+
+function setType(v){
+type = v;
+var btns = seg.querySelectorAll('button');
+for (var i = 0; i < btns.length; i++) {
+btns[i].classList.toggle('on', btns[i].getAttribute('data-v') === v);
+}
+render();
+}
+
+seg.addEventListener('click', function(e){
+var b = e.target.closest('button');
+if (b) setType(b.getAttribute('data-v'));
+});
 
 function showToast(msg){
 toast.textContent = msg;
@@ -190,22 +237,19 @@ copyText(t).then(function(){ showToast('コピーしました');})
 });
 
 document.getElementById('btnClear').addEventListener('click', function(){
-fields.subject.value = ''; fields.hou.value = '';
-fields.ren.value = ''; fields.sou.value = '';
+ids.forEach(function(id){ fields[id].value = '';});
 render(); showToast('クリアしました');
 });
 
-Object.keys(fields).forEach(function(k){
-fields[k].addEventListener('input', render);
+ids.forEach(function(id){
+fields[id].addEventListener('input', render);
 });
 
 try {
 var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
 if (saved) {
-fields.subject.value = saved.subject || '';
-fields.hou.value = saved.hou || '';
-fields.ren.value = saved.ren || '';
-fields.sou.value = saved.sou || '';
+ids.forEach(function(id){ fields[id].value = saved[id] || '';});
+if (saved.type) setType(saved.type);
 }
 } catch(e) {}
 render();
