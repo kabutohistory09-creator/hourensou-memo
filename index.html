@@ -180,7 +180,7 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 <button type="button" data-v="list">箇条書き</button>
 </div>
 <div class="polish-row">
-<span>文章を整える<small>箇条書きを、読点でつないだ綺麗な文にします</small></span>
+<span>文章を整える<small>打った文字の文脈に合わせて、助詞や文末を補って自然な文にします</small></span>
 <label class="switch"><input type="checkbox" id="polishOn" checked><span class="slider"></span></label>
 </div>
 <div class="preview" id="preview"><span class="empty">入力すると、ここにコピー用の文章が表示されます。</span></div>
@@ -266,33 +266,120 @@ if (m) parts.push(m);
 return parts.join('\n\n');
 }
 
+// ===== 文脈に合わせて自然につなげるための判定 =====
+function isPolite(s){ return /(です|ます|でした|ました|ません|ください|でしょう)$/.test(s); }
+function isVerbLike(s){ return isPolite(s) || /(た|だ|ない|る|う|く|ぐ|す|つ|ぬ|ぶ|む|れた|せた)$/.test(s); }
+var STATE_END = /(済み|完了|対応中|進行中|未定|予定|見込み|見通し|状態|結果|以上)$/;
+// 用言として締められる形に整える。名詞止め（体言止め）なら null を返す
+function completePred(s){
+if (!s) return null;
+if (isVerbLike(s)) return s;
+if (STATE_END.test(s)) return s + 'です';
+if (/[しきぎちりにびみ]$/.test(s) && /[一-龯]$/.test(s.slice(0, -1)) && s.indexOf('、') < 0 && !/の[一-龯]+[しきぎちりにびみ]$/.test(s)) return s + 'ました';
+return null;
+}
+function withParticleWhere(s){ return /(で|に|へ|から|まで)$/.test(s)? s: s + 'で'; }
+function withParticleWho(s){ return (isVerbLike(s) || /(が|は|も)$/.test(s))? s: s + 'が'; }
+// 「なぜ」を後ろの文につなげる形にする。つなげられない場合（丁寧な文など）は null
+function whyConnector(s){
+if (/(から|ので|ため|為)$/.test(s)) return s + '、';
+if (isPolite(s)) return null;
+if (/(た|だ|ない)$/.test(s)) return s + 'ため、';
+return s + 'のため、';
+}
+// 「なにを」が名詞止めのとき、区分に合わせた締めの言葉（topic は「について」まで含む）
+function typePredicate(){
+return type === '相談'? '相談があります。': (type === '連絡'? '連絡します。': '報告します。');
+}
+
 function buildBun(){
 var parts = [];
 if (shown('subject')) {
-var s = fields.subject.value.trim();
-if (s) parts.push('件名：' + s);
+var sb0 = fields.subject.value.trim();
+if (sb0) parts.push('件名：' + sb0);
 }
-var body = [];
-// 1文目：いつ・どこで・だれが（前置き）＋ なにを（本文）
-var pre = [];
+if (!polishOn.checked) { // 整えるOFFのときは単純につなげる
+var bodyS = [];
+var preS = [];
 ['when','where','who'].forEach(function(k){
 if (!shown(k)) return;
 var v = phrase(k);
-if (v) pre.push(v);
+if (v) preS.push(v);
 });
-var what = shown('what')? phrase('what'): '';
-if (pre.length || what) {
-var s1 = pre.join('、');
-if (what) s1 = s1? s1 + '、' + what: what;
-body.push(s1 + '。');
+var whatS = shown('what')? phrase('what'): '';
+if (preS.length || whatS) {
+var s1 = preS.join('、');
+if (whatS) s1 = s1? s1 + '、' + whatS: whatS;
+bodyS.push(s1 + '。');
 }
-// 2文目：なぜ ＋ どうやって
+var whyS = shown('why')? phrase('why'): '';
+var howS = shown('how')? phrase('how'): '';
+if (whyS && howS) bodyS.push(whyS + '、' + howS + '。');
+else if (whyS) bodyS.push(whyS + '。');
+else if (howS) bodyS.push(howS + '。');
+if (bodyS.length) parts.push('\n' + bodyS.join(''));
+if (shown('memo')) {
+var mS = val('memo');
+if (mS) parts.push(mS);
+}
+return parts.join('\n\n');
+}
+var pre = [];
+if (shown('when')) { var p1 = phrase('when'); if (p1) pre.push(p1); }
+if (shown('where')) { var p2 = phrase('where'); if (p2) pre.push(withParticleWhere(p2)); }
+if (shown('who')) { var p3 = phrase('who'); if (p3) pre.push(withParticleWho(p3)); }
+var preStr = pre.join('、');
+var what = shown('what')? phrase('what'): '';
 var why = shown('why')? phrase('why'): '';
 var how = shown('how')? phrase('how'): '';
-if (why && how) body.push(why + '、' + how + '。');
-else if (why) body.push(why + '。');
-else if (how) body.push(how + '。');
-if (body.length) parts.push('\n' + body.join(''));
+var sents = [];
+var usedWhy = false, usedHow = false, preUsed = false;
+function joinPre(main){ preUsed = true; return preStr? preStr + '、' + main: main; }
+function howSentence(h){
+var hc = completePred(h);
+return hc? hc: h + 'しました';
+}
+if (what) {
+var wc = completePred(what);
+if (wc) {
+sents.push(joinPre(wc) + '。');
+} else {
+var topic = joinPre(what + 'について');
+if (how) {
+if (why) {
+var yc0 = whyConnector(why);
+if (yc0) { sents.push(topic + '、' + yc0 + howSentence(how) + '。'); usedWhy = true; }
+else { sents.push(why + '。'); sents.push(topic + '、' + howSentence(how) + '。'); usedWhy = true; }
+} else {
+sents.push(topic + '、' + howSentence(how) + '。');
+}
+usedHow = true;
+} else {
+sents.push(topic + typePredicate());
+}
+}
+}
+if (why && !usedWhy) {
+if (how && !usedHow) {
+var yc2 = whyConnector(why);
+if (yc2) { sents.push(yc2 + howSentence(how) + '。'); }
+else { sents.push(why + '。'); sents.push(howSentence(how) + '。'); }
+usedWhy = true; usedHow = true;
+} else {
+if (/(た|だ|ない)$/.test(why)) { sents.push(why + 'ためです。'); }
+else { var wc2 = completePred(why); sents.push((wc2? wc2: why + 'のためです') + '。'); }
+usedWhy = true;
+}
+} else if (how && !usedHow) {
+sents.push(howSentence(how) + '。');
+usedHow = true;
+}
+if (preStr && !preUsed && sents.length) {
+sents[0] = preStr + '、' + sents[0];
+preUsed = true;
+}
+if (!sents.length && preStr) sents.push(preStr + '。');
+if (sents.length) parts.push('\n' + sents.join(''));
 if (shown('memo')) {
 var m = val('memo');
 if (m) parts.push(m);
