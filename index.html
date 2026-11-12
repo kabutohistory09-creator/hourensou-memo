@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>報連相メモ</title>
+<style>
+:root{
+--bg:#f4f6f5; --card:#ffffff; --ink:#22302a; --sub:#6b7a72;
+--accent:#2e7d5b; --accent-dark:#256a4c; --line:#dde5e0;
+--hou:#2e7d5b; --ren:#2f6fb2; --sou:#c07a1e;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+background:var(--bg); color:var(--ink);
+font-family:-apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+padding:16px 14px 40px;
+padding-bottom:calc(40px + env(safe-area-inset-bottom));
+}
+.wrap{max-width:640px; margin:0 auto;}
+header{margin:6px 2px 14px;}
+h1{font-size:22px; margin:0 0 4px; letter-spacing:.02em;}
+header p{margin:0; color:var(--sub); font-size:13px; line-height:1.6;}
+.card{
+background:var(--card); border:1px solid var(--line); border-radius:14px;
+padding:14px; margin-bottom:12px;
+box-shadow:0 1px 3px rgba(30,50,40,.05);
+}
+label.title{
+display:flex; align-items:center; gap:8px;
+font-weight:700; font-size:15px; margin-bottom:8px;
+}
+.badge{
+display:inline-block; color:#fff; font-size:12px; font-weight:700;
+border-radius:6px; padding:2px 8px; line-height:1.5;
+}
+.b-hou{background:var(--hou);}.b-ren{background:var(--ren);}.b-sou{background:var(--sou);}
+input[type="text"], textarea{
+width:100%; border:1px solid var(--line); border-radius:10px;
+font-size:16px; /* 16px以上でiOS Safariの自動ズームを防ぐ */
+padding:10px 12px; background:#fbfcfb; color:var(--ink);
+font-family:inherit; line-height:1.6;
+}
+textarea{min-height:96px; resize:vertical;}
+input[type="text"]:focus, textarea:focus{
+outline:none; border-color:var(--accent); background:#fff;
+box-shadow:0 0 0 3px rgba(46,125,91,.15);
+}
+.hint{font-size:12px; color:var(--sub); margin-top:6px; line-height:1.6;}
+.preview{
+white-space:pre-wrap; word-break:break-word;
+background:#f7faf8; border:1px dashed var(--line); border-radius:10px;
+padding:12px; font-size:15px; line-height:1.75; min-height:120px;
+}
+.preview.empty{color:var(--sub);}
+.btns{display:flex; gap:10px; margin-top:12px;}
+button{
+appearance:none; -webkit-appearance:none; border:none; cursor:pointer;
+font-family:inherit; font-weight:700; border-radius:10px;
+}
+.btn-copy{
+flex:1; background:var(--accent); color:#fff; font-size:16px; padding:14px 10px;
+}
+.btn-copy:active{background:var(--accent-dark);}
+.btn-clear{
+background:#eef2ef; color:var(--ink); font-size:14px; padding:14px 16px;
+}
+.toast{
+position:fixed; left:50%; bottom:calc(22px + env(safe-area-inset-bottom));
+transform:translateX(-50%) translateY(20px);
+background:#22302a; color:#fff; font-size:14px; font-weight:700;
+padding:10px 18px; border-radius:999px; opacity:0; pointer-events:none;
+transition:opacity.25s, transform.25s; z-index:10;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>報連相メモ</h1>
+<p>報告・連絡・相談を書いて、まとめてコピー。そのままチャットやメールに貼れます。入力内容はこの端末にだけ自動保存されます。</p>
+</header>
+
+<div class="card">
+<label class="title" for="subject">件名（任意）</label>
+<input type="text" id="subject" placeholder="例：〇〇の進捗について">
+</div>
+
+<div class="card">
+<label class="title" for="hou"><span class="badge b-hou">報告</span> 進捗・結果</label>
+<textarea id="hou" placeholder="例：〇〇が完了しました。結果は△△でした。"></textarea>
+<div class="hint">結論から先に書くと伝わりやすいです。</div>
+</div>
+
+<div class="card">
+<label class="title" for="ren"><span class="badge b-ren">連絡</span> 共有事項</label>
+<textarea id="ren" placeholder="例：明日の会議は10時からに変更になりました。"></textarea>
+<div class="hint">日時・場所・変更点など、関係者に知らせることを。</div>
+</div>
+
+<div class="card">
+<label class="title" for="sou"><span class="badge b-sou">相談</span> 困りごと・判断待ち</label>
+<textarea id="sou" placeholder="例：〇〇の進め方で迷っています。A案とB案、どちらがよいでしょうか。"></textarea>
+<div class="hint">自分の考え（案）も添えると、返事がもらいやすいです。</div>
+</div>
+
+<div class="card">
+<label class="title">まとめ（プレビュー）</label>
+<div class="preview" id="preview"><span class="empty">入力すると、ここにコピー用の文章が表示されます。</span></div>
+<div class="btns">
+<button class="btn-copy" id="btnCopy" type="button">まとめてコピー</button>
+<button class="btn-clear" id="btnClear" type="button">クリア</button>
+</div>
+</div>
+
+<footer>報連相メモ｜入力内容は外部に送信されません</footer>
+</div>
+<div class="toast" id="toast">コピーしました</div>
+
+<script>
+(function(){
+var fields = { subject: document.getElementById('subject'),
+hou: document.getElementById('hou'),
+ren: document.getElementById('ren'),
+sou: document.getElementById('sou')};
+var preview = document.getElementById('preview');
+var toast = document.getElementById('toast');
+var KEY = 'hourensou-memo-v1';
+
+function buildText(){
+var parts = [];
+var s = fields.subject.value.trim();
+if (s) parts.push('件名：' + s);
+var hou = fields.hou.value.trim();
+var ren = fields.ren.value.trim();
+var sou = fields.sou.value.trim();
+if (hou) parts.push('\n' + hou);
+if (ren) parts.push('\n' + ren);
+if (sou) parts.push('\n' + sou);
+return parts.join('\n\n');
+}
+
+function render(){
+var t = buildText();
+if (t) { preview.textContent = t;}
+else { preview.innerHTML = '<span class="empty">入力すると、ここにコピー用の文章が表示されます。</span>';}
+try {
+localStorage.setItem(KEY, JSON.stringify({
+subject: fields.subject.value, hou: fields.hou.value,
+ren: fields.ren.value, sou: fields.sou.value
+}));
+} catch(e) {}
+}
+
+function showToast(msg){
+toast.textContent = msg;
+toast.classList.add('show');
+setTimeout(function(){ toast.classList.remove('show');}, 1800);
+}
+
+function copyText(t){
+if (navigator.clipboard && window.isSecureContext) {
+return navigator.clipboard.writeText(t);
+}
+return new Promise(function(resolve, reject){
+var ta = document.createElement('textarea');
+ta.value = t;
+ta.style.position = 'fixed'; ta.style.opacity = '0';
+document.body.appendChild(ta);
+ta.focus(); ta.select();
+try {
+var ok = document.execCommand('copy');
+document.body.removeChild(ta);
+ok? resolve(): reject(new Error('copy failed'));
+} catch(e) {
+document.body.removeChild(ta);
+reject(e);
+}
+});
+}
+
+document.getElementById('btnCopy').addEventListener('click', function(){
+var t = buildText();
+if (!t) { showToast('まず入力してください'); return;}
+copyText(t).then(function(){ showToast('コピーしました');})
+.catch(function(){ showToast('コピーできませんでした');});
+});
+
+document.getElementById('btnClear').addEventListener('click', function(){
+fields.subject.value = ''; fields.hou.value = '';
+fields.ren.value = ''; fields.sou.value = '';
+render(); showToast('クリアしました');
+});
+
+Object.keys(fields).forEach(function(k){
+fields[k].addEventListener('input', render);
+});
+
+try {
+var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+if (saved) {
+fields.subject.value = saved.subject || '';
+fields.hou.value = saved.hou || '';
+fields.ren.value = saved.ren || '';
+fields.sou.value = saved.sou || '';
+}
+} catch(e) {}
+render();
+})();
+</script>
+</body>
+</html>
