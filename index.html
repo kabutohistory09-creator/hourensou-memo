@@ -379,7 +379,7 @@ if (!rWhat && rWhy && !/(から|ので|ため|せい|おかげ)/.test(rWhy) && (
 if (!rWhy && rHow && /(から|ので|ため)$/.test(rHow)) { rWhy = rHow; rHow = ''; }
 if (!rWhen && rWhat) {
 var tm = rWhat.match(/^(昨日|一昨日|今日|本日|明日|明後日|来週|今週|午前中|午後|今朝|昨夜)[、\s]?/);
-if (tm) { rWhen = tm[1]; rWhat = rWhat.slice(tm[0].length); }
+if (tm) { rWhen = tm[1]; rWhat = rWhat.slice(tm[0].length).replace(/^[はがも]/, ''); }
 }
 var pre = [];
 if (rWhen) pre.push(rWhen);
@@ -472,12 +472,37 @@ sents[0] = preStr + '、' + sents[0];
 preUsed = true;
 }
 if (!sents.length && preStr) sents.push(preStr + '。');
-if (sents.length) parts.push('\n' + sents.join(''));
+if (sents.length) parts.push('\n' + sents.map(politeEnd).join(''));
 if (shown('memo')) {
 var m = val('memo');
 if (m) parts.push(m);
 }
 return parts.join('\n\n');
+}
+
+// 文末の言い方を丁寧な形にそろえる（した→しました、だ→です、など）
+function politeEnd(sent){
+var core = sent.replace(/。$/, '');
+if (isPolite(core) || /(です|ます)$/.test(core)) return sent;
+if (/なかった$/.test(core) || /かった$/.test(core)) return core + 'です。';
+var rules = [
+[/だった$/, 'でした'],
+[/(飛|遊|呼|学|並|喜)んだ$/, '$1びました'],
+[/んだ$/, 'みました'],
+[/った$/, 'いました'],
+[/いた$/, 'きました'],
+[/いだ$/, 'ぎました'],
+[/た$/, 'ました'],
+[/じゃない$/, 'ではありません'],
+[/ない$/, 'ません'],
+[/する$/, 'します'],
+[/くる$/, 'きます'],
+[/だ$/, 'です']
+];
+for (var i = 0; i < rules.length; i++) {
+if (rules[i][0].test(core)) { core = core.replace(rules[i][0], rules[i][1]); break; }
+}
+return core + '。';
 }
 
 function buildText(){ return mode === 'bun'? buildBun(): buildList();}
