@@ -180,7 +180,7 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 <button type="button" data-v="list">箇条書き</button>
 </div>
 <div class="polish-row">
-<span>文章を整える<small>打った文字の文脈に合わせて、助詞や文末を補って自然な文にします</small></span>
+<span>文章を整える<small>適当な表現やカタコトでも、意味を推測して自然な文にします</small></span>
 <label class="switch"><input type="checkbox" id="polishOn" checked><span class="slider"></span></label>
 </div>
 <div class="preview" id="preview"><span class="empty">入力すると、ここにコピー用の文章が表示されます。</span></div>
@@ -237,10 +237,34 @@ if (asSentence &&!/[。！？]$/.test(out)) out += '。';
 return out;
 }
 
+// カタコト・適当な表現を標準の言葉に置き換える辞書
+var KANA_DICT = [
+['カイギシツ','会議室'],['ゲツヨウビ','月曜日'],['カヨウビ','火曜日'],['スイヨウビ','水曜日'],['モクヨウビ','木曜日'],['キンヨウビ','金曜日'],['ドヨウビ','土曜日'],['ニチヨウビ','日曜日'],
+['スケジュール','予定'],['ミーティング','会議'],['キャクサキ','客先'],['コウジョウ','工場'],['ジムショ','事務所'],['ホンシャ','本社'],['ゲンバ','現場'],['テンポ','店舗'],['バショ','場所'],['ジカン','時間'],['ヨテイ','予定'],['モンダイ','問題'],
+['アシタ','明日'],['アス','明日'],['キノウ','昨日'],['キョウ','今日'],['アサッテ','明後日'],['ライシュウ','来週'],['ライゲツ','来月'],['コンゲツ','今月'],['シュウマツ','週末'],['ゴゼン','午前'],['ゴゴ','午後'],
+['ジョウシ','上司'],['ブチョウ','部長'],['カチョウ','課長'],['シャチョウ','社長'],['センパイ','先輩'],['ドウリョウ','同僚'],['センセイ','先生'],['ワタシ','私'],
+['カイギ','会議'],['カクニン','確認'],['レンラク','連絡'],['ホウコク','報告'],['ソウダン','相談'],['シリョウ','資料'],['ジュンビ','準備'],['テイシュツ','提出'],['ヘンコウ','変更'],['チョウセイ','調整'],['タイオウ','対応'],['チョウサ','調査'],['ケントウ','検討'],['ジッシ','実施'],['サクセイ','作成'],['シュウセイ','修正'],['ソウフ','送付'],['キョウユウ','共有'],['イライ','依頼'],['ケッテイ','決定'],['エンキ','延期'],['チュウシ','中止'],['カイサイ','開催'],['サンカ','参加'],['ホウモン','訪問'],['セツメイ','説明'],['チェック','確認'],['オネガイ','お願い'],['ヤクソク','約束'],['ヒト','人'],['トコロ','場所']
+];
+var COLLOQ_DICT = [['とりあえず','まず'],['ちょっと','少し'],['やった','実施した'],['ダメ','不可'],['すみませんが','恐れ入りますが']];
+function preNormalize(text){
+var t = String(text);
+if (/[　 ]/.test(t)) {
+var toks = t.replace(/[　 ]+/g, ' ').split(' ').filter(function(s){ return s.length > 0;});
+if (toks.length) t = toks.join('');
+}
+KANA_DICT.forEach(function(kv){ t = t.split(kv[0]).join(kv[1]); });
+t = t.replace(/([一-龯])ノ([一-龯])/g, '$1の$2');
+t = t.replace(/シマス/g, 'します').replace(/サレタ/g, 'された').replace(/シタ/g, 'した').replace(/スル/g, 'する');
+COLLOQ_DICT.forEach(function(kv){ t = t.split(kv[0]).join(kv[1]); });
+t = t.replace(/をみた/g, 'を確認した').replace(/^みた/, '確認した').replace(/、みた/g, '、確認した');
+t = t.replace(/試みた/g, '').replace(/([一-龯])みた/g, '$1を確認した').replace(//g, '試みた');
+return t;
+}
+
 function val(k){
 var raw = fields[k].value;
 if (!polishOn.checked) return raw.trim();
-return polish(raw,!!sentenceFields[k]);
+return polish(preNormalize(raw),!!sentenceFields[k]);
 }
 function phrase(k){ // 文末の。を外した形（つなげる用）
 return val(k).replace(/[。]+$/,'').trim();
@@ -335,19 +359,43 @@ if (mS) parts.push(mS);
 }
 return parts.join('\n\n');
 }
+var rWhen = shown('when')? phrase('when'): '';
+var rWhere = shown('where')? phrase('where'): '';
+var rWho = shown('who')? phrase('who'): '';
+var rWhat = shown('what')? phrase('what'): '';
+var rWhy = shown('why')? phrase('why'): '';
+var rHow = shown('how')? phrase('how'): '';
+// 書く場所が違っていても、中身から本来の項目へ寄せる
+var TIME_RE = /(昨日|一昨日|先日|今日|本日|明日|明後日|来週|来月|今週|午前|午後|今朝|先ほど|昨夜|週末|月曜|火曜|水曜|木曜|金曜|土曜|日曜)/;
+var PLACE_RE = /(会議室|本社|支社|客先|工場|店舗|事務所|オンライン|現場|自宅|会場|ホール)/;
+var PERSON_RE = /(さん|氏|様|課長|部長|係長|主任|社長|先生|私|自分|当方|全員|担当|チーム|メンバー|先方|相手)/;
+if (rWhen && PLACE_RE.test(rWhen) && !TIME_RE.test(rWhen) && !rWhere) { rWhere = rWhen; rWhen = ''; }
+if (rWhere && TIME_RE.test(rWhere) && !PLACE_RE.test(rWhere) && !rWhen) { rWhen = rWhere; rWhere = ''; }
+if (rWho && (TIME_RE.test(rWho) || PLACE_RE.test(rWho)) && !PERSON_RE.test(rWho)) {
+if (!rWhen && TIME_RE.test(rWho)) { rWhen = rWho; rWho = ''; }
+else if (!rWhere && PLACE_RE.test(rWho)) { rWhere = rWho; rWho = ''; }
+}
+if (!rWhat && rWhy && !/(から|ので|ため|せい|おかげ)/.test(rWhy) && (isVerbLike(rWhy) || /を/.test(rWhy))) { rWhat = rWhy; rWhy = ''; }
+if (!rWhy && rHow && /(から|ので|ため)$/.test(rHow)) { rWhy = rHow; rHow = ''; }
+if (!rWhen && rWhat) {
+var tm = rWhat.match(/^(昨日|一昨日|今日|本日|明日|明後日|来週|今週|午前中|午後|今朝|昨夜)[、\s]?/);
+if (tm) { rWhen = tm[1]; rWhat = rWhat.slice(tm[0].length); }
+}
 var pre = [];
-if (shown('when')) { var p1 = phrase('when'); if (p1) pre.push(p1); }
-if (shown('where')) { var p2 = phrase('where'); if (p2) pre.push(withParticleWhere(p2)); }
-if (shown('who')) { var p3 = phrase('who'); if (p3) pre.push(withParticleWho(p3)); }
+if (rWhen) pre.push(rWhen);
+if (rWhere) pre.push(withParticleWhere(rWhere));
+if (rWho) pre.push(withParticleWho(rWho));
 var preStr = pre.join('、');
-var tense = tenseOf(typeof p1 !== 'undefined' && p1? p1: '');
-var what = shown('what')? phrase('what'): '';
-var why = shown('why')? phrase('why'): '';
-var how = shown('how')? phrase('how'): '';
+var tense = tenseOf(rWhen || (rWhat + rWhy + rHow));
+var what = rWhat;
+var why = rWhy;
+var how = rHow;
 var sents = [];
 var usedWhy = false, usedHow = false, preUsed = false;
 function joinPre(main){ preUsed = true; return preStr? preStr + '、' + main: main; }
 function howSentence(h){
+var rp = repairNounChain(h);
+if (rp) return rp;
 var hc = completePred(h);
 if (hc) {
 if (tense === 'future' && /しました$/.test(hc)) hc = hc.replace(/しました$/, 'します');
@@ -356,11 +404,24 @@ return hc;
 if (MEANS_ONLY.test(h)) return h + 'で対応' + (tense === 'future'? 'します': 'しました');
 return h + (tense === 'future'? 'します': 'しました');
 }
+// 「資料確認」のような名詞の並びを「資料を確認しました」に読み替える
+var ACTION_TAIL = /(確認|連絡|報告|作成|提出|修正|対応|準備|調査|検討|実施|手配|調整|送付|共有|依頼|決定|変更|延期|中止|開催|参加|訪問|説明)$/;
+function repairNounChain(s){
+if (s.indexOf('、') >= 0 || s.indexOf('。') >= 0) return null;
+var m = s.match(ACTION_TAIL);
+if (!m) return null;
+var head = s.slice(0, s.length - m[0].length);
+if (!head) return null;
+if (/(を|に|へ|の|が|は|も|で|再)$/.test(head)) return null;
+if (m[0] === '対応') return head + 'に対応' + (tense === 'future'? 'します': 'しました');
+return head + 'を' + m[0] + (tense === 'future'? 'します': 'しました');
+}
 // 「なにを」の単語から本分の締めを読む。読めなければ null（「について」形にする）
 function whatMain(w){
 var c = completePred(w);
 if (c) return c;
 if (/の?件$/.test(w)) return null; // 「〜の件」は「について」形にする
+if (type !== '相談') { var rp2 = repairNounChain(w); if (rp2) return rp2; }
 if (TROUBLE_WORDS.test(w)) {
 if (/発生$/.test(w)) return w + 'しました';
 if (/(遅延|遅れ)$/.test(w)) return w + 'がありました';
@@ -396,9 +457,10 @@ if (yc2) { sents.push(yc2 + howSentence(how) + '。'); }
 else { sents.push(why + '。'); sents.push(howSentence(how) + '。'); }
 usedWhy = true; usedHow = true;
 } else {
-if (/(依頼|要望|希望|指示|提案|指摘|相談|連絡|申し出)$/.test(why) && !isPolite(why)) { sents.push(why + 'があったためです。'); }
-else if (/(た|だ|ない)$/.test(why)) { sents.push(why + 'ためです。'); }
-else { var wc2 = completePred(why); sents.push((wc2? wc2: why + 'のためです') + '。'); }
+var whyBare = why.replace(/(から|ので)$/, '');
+if (/(依頼|要望|希望|指示|提案|指摘|相談|連絡|申し出)$/.test(whyBare) && !isPolite(whyBare)) { sents.push(whyBare + 'があったためです。'); }
+else if (/(た|だ|ない)$/.test(whyBare)) { sents.push(whyBare + 'ためです。'); }
+else { var wc2 = completePred(whyBare); sents.push((wc2? wc2: whyBare + 'のためです') + '。'); }
 usedWhy = true;
 }
 } else if (how && !usedHow) {
