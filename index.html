@@ -53,6 +53,32 @@ outline:none; border-color:var(--accent); background:#fff;
 box-shadow:0 0 0 3px rgba(46,125,91,.15);
 }
 .hint{font-size:12px; color:var(--sub); margin-top:6px; line-height:1.6;}
+.checks{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+.checks label{
+display:inline-flex; align-items:center; gap:6px;
+background:#eef2ef; border-radius:999px; padding:7px 12px;
+font-size:14px; font-weight:700; cursor:pointer; user-select:none;
+}
+.checks input[type="checkbox"]{width:18px; height:18px; accent-color:var(--accent); margin:0;}
+.checks label.off{opacity:.45;}
+.polish-row{
+display:flex; align-items:center; justify-content:space-between;
+background:#f7faf8; border:1px solid var(--line); border-radius:10px;
+padding:10px 12px; margin-bottom:12px;
+}
+.polish-row span{font-size:14px; font-weight:700;}
+.polish-row small{display:block; font-weight:400; color:var(--sub); font-size:12px; margin-top:2px;}
+.switch{position:relative; width:52px; height:30px; flex:none;}
+.switch input{opacity:0; width:0; height:0;}
+.slider{
+position:absolute; inset:0; background:#cfd8d2; border-radius:999px; transition:.2s; cursor:pointer;
+}
+.slider:before{
+content:""; position:absolute; width:24px; height:24px; left:3px; top:3px;
+background:#fff; border-radius:50%; transition:.2s;
+}
+.switch input:checked +.slider{background:var(--accent);}
+.switch input:checked +.slider:before{transform:translateX(22px);}
 .preview{
 white-space:pre-wrap; word-break:break-word;
 background:#f7faf8; border:1px dashed var(--line); border-radius:10px;
@@ -82,7 +108,7 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 <div class="wrap">
 <header>
 <h1>報連相メモ｜5W1H</h1>
-<p>5W1H（いつ・どこで・だれが・なにを・なぜ・どうやって）で書くと、抜けなく伝わります。入力内容はこの端末にだけ自動保存されます。</p>
+<p>5W1H（いつ・どこで・だれが・なにを・なぜ・どうやって）で書くと、抜けなく伝わります。各項目は箇条書きで書いてOK。まとめで綺麗な文に整えます。入力内容はこの端末にだけ自動保存されます。</p>
 </header>
 
 <div class="card">
@@ -116,27 +142,42 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 
 <div class="card">
 <label class="title" for="what"><span class="en">What</span> なにを</label>
-<textarea id="what" placeholder="例：〇〇の作業が完了しました／〇〇の変更をお知らせします"></textarea>
+<textarea id="what" placeholder="箇条書きでOK。例：・〇〇の作業が完了&#10;・検品も問題なし"></textarea>
 </div>
 
 <div class="card">
 <label class="title" for="why"><span class="en">Why</span> なぜ</label>
-<textarea id="why" placeholder="例：来週の締切に影響するため／先方の都合で変更になったため"></textarea>
+<textarea id="why" placeholder="箇条書きでOK。例：・来週の締切に影響するため"></textarea>
 </div>
 
 <div class="card">
 <label class="title" for="how"><span class="en">How</span> どうやって・どうなった</label>
-<textarea id="how" placeholder="例：資料を添付して送ります／確認のうえ返信をお願いします"></textarea>
+<textarea id="how" placeholder="箇条書きでOK。例：・資料を添付して送ります&#10;・確認のうえ返信をお願いします"></textarea>
 <div class="hint">結果や、次のお願い（いつまでに・何をしてほしいか）もここに。</div>
 </div>
 
 <div class="card">
 <label class="title" for="memo">メモ（任意）</label>
-<textarea id="memo" placeholder="補足があれば"></textarea>
+<textarea id="memo" placeholder="補足があれば（箇条書きでもOK）"></textarea>
 </div>
 
 <div class="card">
 <label class="title">まとめ（プレビュー）</label>
+<div class="hint" style="margin:0 0 8px;">表示する項目を選べます（チェックを外した項目は、まとめとコピーから除かれます）。</div>
+<div class="checks" id="checks">
+<label><input type="checkbox" data-k="subject" checked>件名</label>
+<label><input type="checkbox" data-k="when" checked>いつ</label>
+<label><input type="checkbox" data-k="where" checked>どこで</label>
+<label><input type="checkbox" data-k="who" checked>だれが</label>
+<label><input type="checkbox" data-k="what" checked>なにを</label>
+<label><input type="checkbox" data-k="why" checked>なぜ</label>
+<label><input type="checkbox" data-k="how" checked>どうやって</label>
+<label><input type="checkbox" data-k="memo" checked>メモ</label>
+</div>
+<div class="polish-row">
+<span>文章を整える<small>箇条書きを、読点でつないだ綺麗な文にします</small></span>
+<label class="switch"><input type="checkbox" id="polishOn" checked><span class="slider"></span></label>
+</div>
 <div class="preview" id="preview"><span class="empty">入力すると、ここにコピー用の文章が表示されます。</span></div>
 <div class="btns">
 <button class="btn-copy" id="btnCopy" type="button">まとめてコピー</button>
@@ -156,24 +197,62 @@ ids.forEach(function(id){ fields[id] = document.getElementById(id);});
 var preview = document.getElementById('preview');
 var toast = document.getElementById('toast');
 var seg = document.getElementById('segType');
+var checksBox = document.getElementById('checks');
+var polishOn = document.getElementById('polishOn');
 var type = '報告';
-var KEY = 'hourensou-memo-5w1h-v1';
+var KEY = 'hourensou-memo-5w1h-v2';
 
 var labels = { when:'いつ', where:'どこで', who:'だれが', what:'なにを', why:'なぜ', how:'どうやって'};
 var order = ['when','where','who','what','why','how'];
+var sentenceFields = { what:1, why:1, how:1, memo:1}; // 文として整える項目
+
+function shown(k){
+var cb = checksBox.querySelector('input[data-k="' + k + '"]');
+return!cb || cb.checked;
+}
+
+// 箇条書きを綺麗な文に整える
+function polish(text, asSentence){
+var lines = String(text).split(/\n+/).map(function(s){
+return s.replace(/^\s*[・•·●○◦\-\-‐―*＊※]\s*/, '')
+.replace(/^\s*\d+\s*[.)、．]\s*/, '')
+.trim();
+}).filter(function(s){ return s.length > 0;});
+if (!lines.length) return '';
+var out = '';
+lines.forEach(function(line, i){
+if (i === 0) { out = line; return;}
+if (/[。！？]$/.test(out)) { out += line;}
+else { out += '、' + line;}
+});
+out = out.replace(/、+/g, '、').replace(/。+/g, '。').replace(/、$/,'').replace(/,$/,'').trim();
+if (asSentence &&!/[。！？]$/.test(out)) out += '。';
+return out;
+}
+
+function val(k){
+var raw = fields[k].value;
+if (!polishOn.checked) return raw.trim();
+return polish(raw,!!sentenceFields[k]);
+}
 
 function buildText(){
 var parts = [];
+if (shown('subject')) {
 var s = fields.subject.value.trim();
 if (s) parts.push('件名：' + s);
+}
 var lines = [''];
 order.forEach(function(k){
-var v = fields[k].value.trim();
+if (!shown(k)) return;
+var v = val(k);
 if (v) lines.push('・' + labels[k] + '：' + v);
 });
 if (lines.length > 1) parts.push(lines.join('\n'));
-var m = fields.memo.value.trim();
+if (shown('memo')) {
+var m = val('memo');
 if (m) parts.push(m);
+}
 return parts.join('\n\n');
 }
 
@@ -181,9 +260,15 @@ function render(){
 var t = buildText();
 if (t) { preview.textContent = t;}
 else { preview.innerHTML = '<span class="empty">入力すると、ここにコピー用の文章が表示されます。</span>';}
+var cbs = checksBox.querySelectorAll('label');
+for (var i = 0; i < cbs.length; i++) {
+var input = cbs[i].querySelector('input');
+cbs[i].classList.toggle('off',!input.checked);
+}
 try {
-var data = { type: type};
+var data = { type: type, polish: polishOn.checked, show: {}};
 ids.forEach(function(id){ data[id] = fields[id].value;});
+ids.forEach(function(id){ data.show[id] = shown(id);});
 localStorage.setItem(KEY, JSON.stringify(data));
 } catch(e) {}
 }
@@ -201,6 +286,8 @@ seg.addEventListener('click', function(e){
 var b = e.target.closest('button');
 if (b) setType(b.getAttribute('data-v'));
 });
+checksBox.addEventListener('change', render);
+polishOn.addEventListener('change', render);
 
 function showToast(msg){
 toast.textContent = msg;
@@ -249,6 +336,13 @@ try {
 var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
 if (saved) {
 ids.forEach(function(id){ fields[id].value = saved[id] || '';});
+if (saved.show) {
+ids.forEach(function(id){
+var cb = checksBox.querySelector('input[data-k="' + id + '"]');
+if (cb && typeof saved.show[id] === 'boolean') cb.checked = saved.show[id];
+});
+}
+if (typeof saved.polish === 'boolean') polishOn.checked = saved.polish;
 if (saved.type) setType(saved.type);
 }
 } catch(e) {}
