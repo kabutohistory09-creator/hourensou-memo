@@ -269,7 +269,7 @@ return parts.join('\n\n');
 // ===== 文脈に合わせて自然につなげるための判定 =====
 function isPolite(s){ return /(です|ます|でした|ました|ません|ください|でしょう)$/.test(s); }
 function isVerbLike(s){ return isPolite(s) || /(た|だ|ない|る|う|く|ぐ|す|つ|ぬ|ぶ|む|れた|せた)$/.test(s); }
-var STATE_END = /(済み|完了|対応中|進行中|未定|予定|見込み|見通し|状態|結果|以上)$/;
+var STATE_END = /(済み|完了|対応中|進行中|作業中|調査中|確認中|中|未定|予定|見込み|見通し|状態|結果|以上)$/;
 // 用言として締められる形に整える。名詞止め（体言止め）なら null を返す
 function completePred(s){
 if (!s) return null;
@@ -285,7 +285,18 @@ function whyConnector(s){
 if (/(から|ので|ため|為)$/.test(s)) return s + '、';
 if (isPolite(s)) return null;
 if (/(た|だ|ない)$/.test(s)) return s + 'ため、';
+if (/(依頼|要望|希望|指示|提案|指摘|相談|連絡|申し出)$/.test(s)) return s + 'があったため、';
 return s + 'のため、';
+}
+// 単語から読み取るための辞書
+var TROUBLE_WORDS = /(トラブル|問題|不具合|障害|遅延|遅れ|ミス|クレーム|故障)/;
+var EVENT_WORDS = /(会議|打ち合わせ|ミーティング|面談|商談|訪問|出張|研修|説明会|発表会|会合)/;
+var MEANS_ONLY = /^(メール|電話|オンライン|対面|訪問|郵送|チャット|テレビ会議|Web会議|FAX|ファクス|LINE)$/;
+// 「いつ」の単語から時制を読む（無ければ区分で判断）
+function tenseOf(whenText){
+if (/(明日|明後日|来週|来月|今後|次回|明朝)/.test(whenText)) return 'future';
+if (/(昨日|一昨日|先日|今朝|先ほど|昨夜|本日)/.test(whenText)) return 'past';
+return type === '連絡'? 'future': 'past';
 }
 // 「なにを」が名詞止めのとき、区分に合わせた締めの言葉（topic は「について」まで含む）
 function typePredicate(){
@@ -329,6 +340,7 @@ if (shown('when')) { var p1 = phrase('when'); if (p1) pre.push(p1); }
 if (shown('where')) { var p2 = phrase('where'); if (p2) pre.push(withParticleWhere(p2)); }
 if (shown('who')) { var p3 = phrase('who'); if (p3) pre.push(withParticleWho(p3)); }
 var preStr = pre.join('、');
+var tense = tenseOf(typeof p1 !== 'undefined' && p1? p1: '');
 var what = shown('what')? phrase('what'): '';
 var why = shown('why')? phrase('why'): '';
 var how = shown('how')? phrase('how'): '';
@@ -337,10 +349,28 @@ var usedWhy = false, usedHow = false, preUsed = false;
 function joinPre(main){ preUsed = true; return preStr? preStr + '、' + main: main; }
 function howSentence(h){
 var hc = completePred(h);
-return hc? hc: h + 'しました';
+if (hc) {
+if (tense === 'future' && /しました$/.test(hc)) hc = hc.replace(/しました$/, 'します');
+return hc;
+}
+if (MEANS_ONLY.test(h)) return h + 'で対応' + (tense === 'future'? 'します': 'しました');
+return h + (tense === 'future'? 'します': 'しました');
+}
+// 「なにを」の単語から本分の締めを読む。読めなければ null（「について」形にする）
+function whatMain(w){
+var c = completePred(w);
+if (c) return c;
+if (/の?件$/.test(w)) return null; // 「〜の件」は「について」形にする
+if (TROUBLE_WORDS.test(w)) {
+if (/発生$/.test(w)) return w + 'しました';
+if (/(遅延|遅れ)$/.test(w)) return w + 'がありました';
+return w + (tense === 'future'? 'が発生する見込みです': 'が発生しました');
+}
+if (EVENT_WORDS.test(w)) return w + (tense === 'future'? 'を行います': 'を行いました');
+return null;
 }
 if (what) {
-var wc = completePred(what);
+var wc = whatMain(what);
 if (wc) {
 sents.push(joinPre(wc) + '。');
 } else {
@@ -366,7 +396,8 @@ if (yc2) { sents.push(yc2 + howSentence(how) + '。'); }
 else { sents.push(why + '。'); sents.push(howSentence(how) + '。'); }
 usedWhy = true; usedHow = true;
 } else {
-if (/(た|だ|ない)$/.test(why)) { sents.push(why + 'ためです。'); }
+if (/(依頼|要望|希望|指示|提案|指摘|相談|連絡|申し出)$/.test(why) && !isPolite(why)) { sents.push(why + 'があったためです。'); }
+else if (/(た|だ|ない)$/.test(why)) { sents.push(why + 'ためです。'); }
 else { var wc2 = completePred(why); sents.push((wc2? wc2: why + 'のためです') + '。'); }
 usedWhy = true;
 }
