@@ -314,7 +314,7 @@ return s + 'のため、';
 }
 // 単語から読み取るための辞書
 var TROUBLE_WORDS = /(トラブル|問題|不具合|障害|遅延|遅れ|ミス|クレーム|故障)/;
-var EVENT_WORDS = /(会議|打ち合わせ|ミーティング|面談|商談|訪問|出張|研修|説明会|発表会|会合)/;
+var EVENT_WORDS = /(会議|打ち合わせ|ミーティング|面談|商談|訪問|出張|研修|説明会|発表会|会合)$/; // 末尾がイベント名詞のときだけ「を行いました」にする（「会議の日程」のような話題名詞を誤判定しない）
 var MEANS_ONLY = /^(メール|電話|オンライン|対面|訪問|郵送|チャット|テレビ会議|Web会議|FAX|ファクス|LINE)$/;
 // 「いつ」の単語から時制を読む（無ければ区分で判断）
 function tenseOf(whenText){
@@ -386,8 +386,8 @@ if (rWhen) pre.push(rWhen);
 if (rWhere) pre.push(withParticleWhere(rWhere));
 if (rWho) pre.push(withParticleWho(rWho));
 var preStr = pre.join('、');
-var tense = tenseOf(rWhen || (rWhat + rWhy + rHow));
-var what = rWhat;
+var tense = tenseOf(rWhen || (rWhat + rHow)); // 時制は理由文（なぜ）の中の未来語には引っ張られない
+var what = rWhat? rWhat.replace(/について$/, '').trim(): rWhat; // ユーザーが「〜について」と書いても二重にしない
 var why = rWhy;
 var how = rHow;
 var sents = [];
@@ -404,17 +404,30 @@ return hc;
 if (MEANS_ONLY.test(h)) return h + 'で対応' + (tense === 'future'? 'します': 'しました');
 return h + (tense === 'future'? 'します': 'しました');
 }
-// 「資料確認」のような名詞の並びを「資料を確認しました」に読み替える
-var ACTION_TAIL = /(確認|連絡|報告|作成|提出|修正|対応|準備|調査|検討|実施|手配|調整|送付|共有|依頼|決定|変更|延期|中止|開催|参加|訪問|説明)$/;
+// 「資料確認」「資料の確認」のような名詞の並びを「資料を確認しました」に読み替える
+// 動作名詞（サ変動詞化できる名詞）の辞書。話題名詞（日程・予算・進捗・結果・内容など）はここに含めず、「〜について」形にする
+var ACTION_TAIL = /(確認|連絡|報告|相談|質問|回答|案内|作成|提出|修正|対応|準備|調査|検討|実施|手配|調整|送付|共有|依頼|決定|変更|延期|中止|開催|参加|訪問|説明|予約|発注|請求|受領|欠席|遅刻|早退|開始|終了|追加|削除)$/;
+// 「を」ではなく「に」でつなぐのが自然な動作名詞
+var NI_ACTION = {'対応':1, '参加':1, '回答':1, '相談':1, '遅刻':1, '早退':1};
 function repairNounChain(s){
 if (s.indexOf('、') >= 0 || s.indexOf('。') >= 0) return null;
+var ending = (tense === 'future'? 'します': 'しました');
+// 「確認作業」のような「動作名詞＋作業」は、全体を目的語にして「を行いました」にする
+if (/作業$/.test(s)) {
+var base = s.slice(0, s.length - 2);
+if (base && ACTION_TAIL.test(base)) return s + (tense === 'future'? 'を行います': 'を行いました');
+return null;
+}
 var m = s.match(ACTION_TAIL);
 if (!m) return null;
-var head = s.slice(0, s.length - m[0].length);
-if (!head) return null;
-if (/(を|に|へ|の|が|は|も|で|再)$/.test(head)) return null;
-if (m[0] === '対応') return head + 'に対応' + (tense === 'future'? 'します': 'しました');
-return head + 'を' + m[0] + (tense === 'future'? 'します': 'しました');
+var act = m[0];
+var head = s.slice(0, s.length - act.length);
+if (!head) return act + ending; // 動作名詞だけのとき（「確認」→「確認しました」）
+var p = NI_ACTION[act]? 'に': 'を';
+if (/への$/.test(head)) return head.slice(0, head.length - 2) + 'に' + act + ending; // 「部長への相談」→「部長に相談しました」
+if (/の$/.test(head)) return head.slice(0, head.length - 1) + p + act + ending; // 「資料の確認」→「資料を確認しました」
+if (/(を|に|へ|が|は|も|で|から|まで|再)$/.test(head)) return null;
+return head + p + act + ending; // 「資料確認」→「資料を確認しました」／「会議参加」→「会議に参加しました」
 }
 // 「なにを」の単語から本分の締めを読む。読めなければ null（「について」形にする）
 function whatMain(w){
@@ -458,7 +471,8 @@ else { sents.push(why + '。'); sents.push(howSentence(how) + '。'); }
 usedWhy = true; usedHow = true;
 } else {
 var whyBare = why.replace(/(から|ので)$/, '');
-if (/(依頼|要望|希望|指示|提案|指摘|相談|連絡|申し出)$/.test(whyBare) && !isPolite(whyBare)) { sents.push(whyBare + 'があったためです。'); }
+if (/(ため|為)$/.test(whyBare)) { sents.push(whyBare + '。'); } // 「〜ため」に「のためです」を重ねない
+else if (/(依頼|要望|希望|指示|提案|指摘|相談|連絡|申し出)$/.test(whyBare) && !isPolite(whyBare)) { sents.push(whyBare + 'があったためです。'); }
 else if (/(た|だ|ない)$/.test(whyBare)) { sents.push(whyBare + 'ためです。'); }
 else { var wc2 = completePred(whyBare); sents.push((wc2? wc2: whyBare + 'のためです') + '。'); }
 usedWhy = true;
