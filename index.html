@@ -299,6 +299,7 @@ function completePred(s){
 if (!s) return null;
 if (isVerbLike(s)) return s;
 if (STATE_END.test(s)) return s + 'です';
+if (/(欲しい|ほしい|たい)$/.test(s)) return s + 'です'; // 「〜て欲しい」「〜たい」は願望の文として締める（「について」にしない）
 if (/[しきぎちりにびみ]$/.test(s) && /[一-龯]$/.test(s.slice(0, -1)) && s.indexOf('、') < 0 && !/の[一-龯]+[しきぎちりにびみ]$/.test(s)) return s + 'ました';
 return null;
 }
@@ -432,6 +433,16 @@ var how = rHow;
 var sents = [];
 var usedWhy = false, usedHow = false, preUsed = false;
 function joinPre(main){ preUsed = true; return preStr? preStr + '、' + main: main; }
+// 辞書形の動詞を、時制に合わせて丁寧な過去形にする（「送る」→「送りました」）
+function dictToPolitePast(s){
+if (/(です|ます|ました|でした|たい|欲しい|ほしい)$/.test(s)) return s;
+if (/する$/.test(s)) return s.replace(/する$/, 'しました');
+if (/くる$/.test(s)) return s.replace(/くる$/, 'きました');
+if (/来る$/.test(s)) return s.replace(/来る$/, '来ました');
+if (/([見着寝出居])る$/.test(s)) return s.replace(/る$/, 'ました');
+if (/([えけげせぜてでねへべぺめれいきぎしじちぢにひびぴみり])る$/.test(s)) return s.replace(/る$/, 'ました');
+return s.replace(/う$/, 'いました').replace(/く$/, 'きました').replace(/ぐ$/, 'ぎました').replace(/す$/, 'しました').replace(/つ$/, 'ちました').replace(/ぬ$/, 'にました').replace(/ぶ$/, 'びました').replace(/む$/, 'みました').replace(/る$/, 'りました');
+}
 // 「部長確認お願い」のような頼み方を、前後の単語（だれに・なにを）から読み取って文にする
 function requestForm(h){
 var rm = h.match(/^(.{1,10}?)(確認|連絡|報告|相談|質問|回答|案内|作成|提出|修正|対応|準備|調査|検討|実施|手配|調整|送付|共有|依頼|決定|変更|予約|発注|請求)お願い$/);
@@ -449,6 +460,7 @@ if (rp) return rp;
 var hc = completePred(h);
 if (hc) {
 if (tense === 'future' && /しました$/.test(hc)) hc = hc.replace(/しました$/, 'します');
+if (tense === 'past') hc = dictToPolitePast(hc);
 return hc;
 }
 if (MEANS_ONLY.test(h)) return h + 'で対応' + (tense === 'future'? 'します': 'しました');
@@ -487,7 +499,7 @@ function whatMain(w){
 var rf2 = requestForm(w);
 if (rf2) return rf2;
 var c = completePred(w);
-if (c) return c;
+if (c) { if (tense === 'past') c = dictToPolitePast(c); return c; }
 if (/の?件$/.test(w)) return null; // 「〜の件」は「について」形にする
 if (type !== '相談') { var rp2 = repairNounChain(w); if (rp2) return rp2; }
 if (TROUBLE_WORDS.test(w)) {
@@ -579,6 +591,16 @@ var rules = [
 [/ない$/, 'ません'],
 [/する$/, 'します'],
 [/くる$/, 'きます'],
+[/([えけげせぜてでねへべぺめれいきぎしじちぢにひびぴみり])る$/, '$1ます'],
+[/([見着寝出居])る$/, '$1ます'],
+[/る$/, 'ります'],
+[/う$/, 'います'],
+[/く$/, 'きます'],
+[/ぐ$/, 'ぎます'],
+[/つ$/, 'ちます'],
+[/ぬ$/, 'にます'],
+[/ぶ$/, 'びます'],
+[/む$/, 'みます'],
 [/だ$/, 'です']
 ];
 for (var i = 0; i < rules.length; i++) {
