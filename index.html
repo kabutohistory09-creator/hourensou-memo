@@ -180,7 +180,7 @@ footer{color:var(--sub); font-size:12px; text-align:center; margin-top:18px; lin
 <button type="button" data-v="list">箇条書き</button>
 </div>
 <div class="polish-row">
-<span>文章を整える<small>適当な表現やカタコトでも、意味を推測して自然な文にします</small></span>
+<span>文章を整える<small>適当な表現やカタコトでも、前後の言葉や他の項目の内容から意味を推測して自然な文にします</small></span>
 <label class="switch"><input type="checkbox" id="polishOn" checked><span class="slider"></span></label>
 </div>
 <div class="preview" id="preview"><span class="empty">入力すると、ここにコピー用の文章が表示されます。</span></div>
@@ -379,7 +379,46 @@ if (!rWhat && rWhy && !/(から|ので|ため|せい|おかげ)/.test(rWhy) && (
 if (!rWhy && rHow && /(から|ので|ため)$/.test(rHow)) { rWhy = rHow; rHow = ''; }
 if (!rWhen && rWhat) {
 var tm = rWhat.match(/^(昨日|一昨日|今日|本日|明日|明後日|来週|今週|午前中|午後|今朝|昨夜)[、\s]?/);
-if (tm) { rWhen = tm[1]; rWhat = rWhat.slice(tm[0].length).replace(/^[はがも]/, ''); }
+if (tm) { rWhen = tm[1]; rWhat = rWhat.slice(tm[0].length).replace(/^[はがもの]/, ''); }
+}
+// 文節ごとに、前後の文脈から本来の項目へ寄せる（理由の文節は「なぜ」へ、お願いの文節は「どうやって」へ）
+function splitC(s){ return s.split('、').map(function(x){ return x.trim(); }).filter(function(x){ return x.length > 0; }); }
+function moveReasonClauses(from){
+if (!from) return from;
+var cs = splitC(from), keep = [];
+cs.forEach(function(c){
+if (/(から|ので|ため|せい)$/.test(c)) { rWhy = rWhy? rWhy + '、' + c: c; }
+else keep.push(c);
+});
+return keep.join('、');
+}
+rWhat = moveReasonClauses(rWhat);
+rHow = moveReasonClauses(rHow);
+if (rWhat) {
+var cs2 = splitC(rWhat);
+if (cs2.length >= 2) {
+var keep2 = [];
+cs2.forEach(function(c){
+if (/(お願い|ください|下さい|ほしい|いただきたい|頂きたい)$/.test(c)) { rHow = rHow? c + '、' + rHow: c; }
+else keep2.push(c);
+});
+rWhat = keep2.join('、');
+}
+}
+// 理由の文節を取り除いた残りから、途中にある時・場所の言葉を拾って項目へ寄せる
+if (!rWhen && rWhat) {
+var tm2 = rWhat.match(/(今日中|明日中|昨日|一昨日|今日|本日|明日|明後日|来週|今週|午前中|午後|今朝|昨夜|先ほど)/);
+if (tm2) {
+var restT = rWhat.replace(tm2[0], '').replace(/^[、\s]+/, '').replace(/[、\s]+$/, '').replace(/^の/, '');
+if (restT.length >= 2 && !/^(中に|まで|から)/.test(restT)) { rWhen = tm2[1]; rWhat = restT.replace(/^[にへ]/, ''); }
+}
+}
+if (!rWhere && rWhat) {
+var pm = rWhat.match(/(会議室|本社|支社|客先|工場|店舗|事務所|現場|会場|自宅)(で|にて)/);
+if (pm) {
+var restP = rWhat.replace(pm[0], '');
+if (restP.length >= 2) { rWhere = pm[1]; rWhat = restP; }
+}
 }
 var pre = [];
 if (rWhen) pre.push(rWhen);
@@ -393,7 +432,18 @@ var how = rHow;
 var sents = [];
 var usedWhy = false, usedHow = false, preUsed = false;
 function joinPre(main){ preUsed = true; return preStr? preStr + '、' + main: main; }
+// 「部長確認お願い」のような頼み方を、前後の単語（だれに・なにを）から読み取って文にする
+function requestForm(h){
+var rm = h.match(/^(.{1,10}?)(確認|連絡|報告|相談|質問|回答|案内|作成|提出|修正|対応|準備|調査|検討|実施|手配|調整|送付|共有|依頼|決定|変更|予約|発注|請求)お願い$/);
+if (rm) return PERSON_RE.test(rm[1])? rm[1] + 'に' + rm[2] + 'をお願いします': rm[1] + 'の' + rm[2] + 'をお願いします';
+if (/をお願い$/.test(h) || /よろしくお願い$/.test(h)) return h + 'します';
+if (/お願い$/.test(h)) return h.replace(/お願い$/, 'をお願いします');
+return null;
+}
 function howSentence(h){
+var rf = requestForm(h);
+if (rf) return rf;
+if (/(ください|下さい)$/.test(h)) return h;
 var rp = repairNounChain(h);
 if (rp) return rp;
 var hc = completePred(h);
@@ -424,13 +474,18 @@ var act = m[0];
 var head = s.slice(0, s.length - act.length);
 if (!head) return act + ending; // 動作名詞だけのとき（「確認」→「確認しました」）
 var p = NI_ACTION[act]? 'に': 'を';
+if (p === 'を' && PERSON_RE.test(head) && ['連絡','報告','質問','案内','相談'].indexOf(act) >= 0) p = 'に'; // 前の単語が人なら「部長に連絡しました」の形にする
 if (/への$/.test(head)) return head.slice(0, head.length - 2) + 'に' + act + ending; // 「部長への相談」→「部長に相談しました」
 if (/の$/.test(head)) return head.slice(0, head.length - 1) + p + act + ending; // 「資料の確認」→「資料を確認しました」
+var pm2 = head.match(/^(.+?)(に|へ)$/);
+if (pm2 && PERSON_RE.test(pm2[1])) return pm2[1] + pm2[2] + act + ending; // 「部長に連絡」→「部長に連絡しました」
 if (/(を|に|へ|が|は|も|で|から|まで|再)$/.test(head)) return null;
 return head + p + act + ending; // 「資料確認」→「資料を確認しました」／「会議参加」→「会議に参加しました」
 }
 // 「なにを」の単語から本分の締めを読む。読めなければ null（「について」形にする）
 function whatMain(w){
+var rf2 = requestForm(w);
+if (rf2) return rf2;
 var c = completePred(w);
 if (c) return c;
 if (/の?件$/.test(w)) return null; // 「〜の件」は「について」形にする
@@ -441,6 +496,19 @@ if (/(遅延|遅れ)$/.test(w)) return w + 'がありました';
 return w + (tense === 'future'? 'が発生する見込みです': 'が発生しました');
 }
 if (EVENT_WORDS.test(w)) return w + (tense === 'future'? 'を行います': 'を行いました');
+// 複数の動作が並んでいたら、前後の文節をつないで一文にする（「資料確認、部長に連絡」→「資料を確認し、部長に連絡しました」）
+if (type !== '相談' && w.indexOf('、') >= 0) {
+var cs3 = splitC(w);
+if (cs3.length >= 2 && cs3.length <= 4) {
+var preds = [], okA = true;
+cs3.forEach(function(c3){ var p3 = repairNounChain(c3) || completePred(c3); if (!p3) okA = false; else preds.push(p3); });
+if (okA) {
+var lastP = preds.pop();
+var heads = preds.map(function(p4){ return p4.replace(/([きぎしちにびみりい])ました$/, '$1').replace(/([きぎしちにびみりい])ます$/, '$1'); });
+return heads.join('、') + '、' + lastP;
+}
+}
+}
 return null;
 }
 if (what) {
@@ -471,7 +539,7 @@ else { sents.push(why + '。'); sents.push(howSentence(how) + '。'); }
 usedWhy = true; usedHow = true;
 } else {
 var whyBare = why.replace(/(から|ので)$/, '');
-if (/(ため|為)$/.test(whyBare)) { sents.push(whyBare + '。'); } // 「〜ため」に「のためです」を重ねない
+if (/(ため|為)$/.test(whyBare)) { sents.push(whyBare + 'です。'); } // 「〜ため」に「のためです」を重ねない
 else if (/(依頼|要望|希望|指示|提案|指摘|相談|連絡|申し出)$/.test(whyBare) && !isPolite(whyBare)) { sents.push(whyBare + 'があったためです。'); }
 else if (/(た|だ|ない)$/.test(whyBare)) { sents.push(whyBare + 'ためです。'); }
 else { var wc2 = completePred(whyBare); sents.push((wc2? wc2: whyBare + 'のためです') + '。'); }
